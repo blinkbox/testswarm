@@ -4,12 +4,12 @@
  * Each of these objects is created only once for the context.
  * The creation happends on-demand and is put in a private cache.
  *
- * @author Timo Tijhof, 2012
+ * @author Timo Tijhof, 2012-2013
  * @since 1.0.0
  * @package TestSwarm
  */
 class TestSwarmContext {
-	protected $browserInfo, $conf, $db, $request, $versionInfo;
+	protected $browserInfo, $conf, $db, $request, $auth, $versionInfo;
 
 	/**
 	 * The context is self-initializing. The only thing it needs to be passed is
@@ -23,7 +23,7 @@ class TestSwarmContext {
 
 	public function getBrowserInfo() {
 		if ( $this->browserInfo === null ) {
-			$ua = isset( $_SERVER['HTTP_USER_AGENT'] ) ? $_SERVER['HTTP_USER_AGENT'] : '';
+			$ua = isset( $_SERVER['HTTP_USER_AGENT'] ) ? $_SERVER['HTTP_USER_AGENT'] : '-';
 			$this->browserInfo = BrowserInfo::newFromContext( $this, $ua );
 		}
 		return $this->browserInfo;
@@ -89,6 +89,55 @@ class TestSwarmContext {
 			$this->request = WebRequest::newFromContext( $this );
 		}
 		return $this->request;
+	}
+
+	/**
+	 * Get the authentication object.
+	 * This logic used to be in init.php and accessed in other files directly
+	 * from the session. However since initialisation of the session can sometimes
+	 * only be determined after the context is created (see api.php), we need to
+	 * defer it to here where we lazy-init the object. Another reason is security
+	 * (see github.com/jquery/testswarm/issues/181), we need to invalidate the
+	 * session if we detect it is no longer up to date with the corresponding
+	 * account in the database (which we can only access after init).
+	 * @return object|false
+	 */
+	public function getAuth() {
+		if ( $this->auth === null ) {
+			$request = $this->getRequest();
+
+			$auth = $request->getSessionData( 'auth' );
+			if ( !$auth ) {
+				return $this->flushAuth();
+			}
+
+			// Invalidate session if it is malformed (different structure)
+			if ( !isset( $auth->project ) || !is_object( $auth->project ) ) {
+				return $this->flushAuth();
+			}
+
+			// Invalidate session if it is outdated (password changed, project deleted, ..)
+			$projectRow = $this->getDB()->getRow(str_queryf(
+				'SELECT
+					auth_token,
+					updated
+				FROM projects
+				WHERE id = %s',
+				$auth->project->id
+			));
+			if ( $auth->project->auth_token !== $projectRow->auth_token || $auth->project->updated !== $projectRow->updated ) {
+				return $this->flushAuth();
+			}
+			// Valid!
+			$this->auth = $auth;
+		}
+		return $this->auth;
+	}
+
+	public function flushAuth() {
+		$this->getRequest()->setSessionData( 'auth', null );
+		$this->auth = false;
+		return $this->auth;
 	}
 
 	public function createDerivedRequestContext( Array $query = array(), $method = 'GET' ) {
@@ -167,27 +216,38 @@ class TestSwarmContext {
 		// and append it to the version.
 		$gitHeadFile = "$swarmInstallDir/.git/HEAD";
 		if ( is_readable( $gitHeadFile ) ) {
-			$gitHead = file_get_contents( $gitHeadFile );
-			if ( preg_match( '/ref: (.*)/', $gitHead, $matches ) ) {
-				$gitHead = rtrim( $matches[1] );
+			// Get HEAD
+			$gitHeadFileCnt = file_get_contents( $gitHeadFile );
+			if ( preg_match( '/ref: (.*)/', $gitHeadFileCnt, $matches ) ) {
+				$gitHead = trim( $matches[1] );
 			} else {
-				$gitHead = trim( $gitHead );
+				$gitHead = trim( $gitHeadFileCnt );
 			}
 
+			// Get current branch
+			if ( $gitHead && preg_match( "#^refs/heads/(.*)$#", $gitHead, $m ) ) {
+				// If it is a simple head, only return the heads name
+				$gitBranch = $m[1];
+			} else {
+				// Otherwise it is something else, for which we'll show the full name
+				$gitBranch = $gitHead;
+			}
+
+			// Get SHA1
 			$gitRefFile = "$swarmInstallDir/.git/$gitHead";
 			if ( is_readable( $gitRefFile ) ) {
-				$devInfo = array(
-					'branch' => basename( $gitRefFile ),
-					'HEAD' => trim( file_get_contents( $gitRefFile ) ),
-				);
+				$gitSHA1 = trim( file_get_contents( $gitRefFile ) );
 			} else {
-				// If such refs file doesn't exist, maybe HEAD is detached,
-				// in which case ./.git/HEAD should contain the actual SHA1 already.
-				$devInfo = array(
-					'branch' => '',
-					'HEAD' => $gitHead,
-				);
+				// If such refs file doesn't exist, HEAD is detached,
+				// in which case ./.git/HEAD contains the SHA1 directly.
+				$gitSHA1 = $gitHead;
+				$gitBranch = '(no branch)';
 			}
+
+			$devInfo = array(
+				'branch' => $gitBranch,
+				'SHA1' => $gitSHA1,
+			);
 		}
 
 		return array(

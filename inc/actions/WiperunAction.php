@@ -15,15 +15,11 @@ class WiperunAction extends Action {
 	 * @actionParam int run_id
 	 * @actionParam int client_id
 	 * @actionParam int useragent_id
+	 * @actionAuth: Required.
 	 */
 	public function doAction() {
 		$db = $this->getContext()->getDB();
 		$request = $this->getContext()->getRequest();
-
-		if ( !$request->wasPosted() ) {
-			$this->setError( "requires-post" );
-			return;
-		}
 
 		$runID = $request->getInt( "run_id" );
 		$clientID = $request->getInt( "client_id" );
@@ -35,7 +31,7 @@ class WiperunAction extends Action {
 		}
 
 		$jobID = (int)$db->getOne(str_queryf(
-			"SELECT job_id FROM runs WHERE id = %u;",
+			'SELECT job_id FROM runs WHERE id = %u;',
 			$runID
 		));
 
@@ -44,31 +40,29 @@ class WiperunAction extends Action {
 			return;
 		}
 
-		$jobOwner = $db->getOne(str_queryf(
-			"SELECT
-				users.name as user_name
-			FROM jobs, users
-			WHERE jobs.id = %u
-			AND   users.id = jobs.user_id
-			LIMIT 1;",
+
+		$projectID = $db->getOne(str_queryf(
+			'SELECT
+				project_id
+			FROM jobs
+			WHERE id = %u;',
 			$jobID
 		));
 
-		if ( !$jobOwner ) {
+		if ( !$projectID ) {
 			$this->setError( "invalid-input", "Job $jobID not found." );
 			return;
 		}
 
 		// Check authentication
-		if ( $request->getSessionData( "auth" ) !== "yes" || $request->getSessionData( "username" ) !== $jobOwner ) {
-			$this->setError( "requires-auth" );
+		if ( !$this->doRequireAuth( $projectID ) ) {
 			return;
 		}
 
 		$runJobID = (int)$db->getOne(str_queryf(
-			"SELECT job_id
+			'SELECT job_id
 			FROM runs
-			WHERE id = %u;",
+			WHERE id = %u;',
 			$runID
 		));
 		if ( $runJobID !== $jobID ) {
@@ -77,9 +71,9 @@ class WiperunAction extends Action {
 		}
 
 		$clientUseragentID = $db->getOne(str_queryf(
-			"SELECT useragent_id
+			'SELECT useragent_id
 			FROM clients
-			WHERE id = %u;",
+			WHERE id = %u;',
 			$clientID
 		));
 		if ( $clientUseragentID !== $useragentID ) {
@@ -88,7 +82,7 @@ class WiperunAction extends Action {
 		}
 
 		$db->query(str_queryf(
-			"UPDATE
+			'UPDATE
 				run_useragent
 			SET
 				status = 0,
@@ -96,7 +90,7 @@ class WiperunAction extends Action {
 				results_id = NULL,
 				updated = %s
 			WHERE run_id = %u
-			AND   useragent_id = %s;",
+			AND   useragent_id = %s;',
 			swarmdb_dateformat( SWARM_NOW ),
 			$runID,
 			$useragentID

@@ -45,6 +45,10 @@ class Database {
 		return $db;
 	}
 
+	final protected function getContext() {
+		return $this->context;
+	}
+
 	/** @return string: current DB name */
 	public function getDBname() {
 		return $this->dbname;
@@ -191,7 +195,7 @@ class Database {
 	 */
 	public function fieldExists( $table, $fieldName ) {
 		$info = $this->fieldInfo( $table, $fieldName );
-		return (bool)$info;
+		return (bool) $info;
 	}
 
 	/**

@@ -10,8 +10,8 @@ class GetrunAction extends Action {
 
 	/**
 	 * @actionMethod POST: Required.
-	 * @actionParam run_token string
-	 * @actionParam client_id int
+	 * @actionParam string run_token
+	 * @actionParam int client_id
 	 */
 	public function doAction() {
 		$browserInfo = $this->getContext()->getBrowserInfo();
@@ -42,8 +42,9 @@ class GetrunAction extends Action {
 		// Throws exception (caught higher up) if stuff is invalid.
 		$client = Client::newFromContext( $this->getContext(), $runToken, $clientID );
 
-		// Get oldest run for this user agent. But not runs that are already being run
-		// (status=1), or reached the max or passed (status=2).
+		// Get oldest idle (status=0) run for this user agent.
+		// Except if it was already ran in this client in the past (client_id=%u), because
+		// in that case it must've failed. We don't want it to run in the same client again.
 		$runID = $db->getOne(str_queryf(
 			'SELECT	run_useragent.run_id
 			FROM	jobs 		
@@ -94,7 +95,7 @@ class GetrunAction extends Action {
 				$runID
 			));
 
-			if ( $row->run_url && $row->job_name && $row->run_name ) {
+			if ( $row && $row->run_url && $row->job_name && $row->run_name ) {
 				// Create stub runresults entry
 				$storeToken = sha1( mt_rand() );
 				$now = time();

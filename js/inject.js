@@ -11,8 +11,7 @@
  * @since 0.1.0
  * @package TestSwarm
  */
-/*global jQuery, $, QUnit, Test, JSSpec, JsUnitTestManager, SeleniumTestResult, LOG, doh, Screw*/
-/*jshint forin:false, strict:false, loopfunc:true, browser:true, jquery:true*/
+/*global QUnit, Test, JSSpec, JsUnitTestManager, SeleniumTestResult, LOG, doh, Screw, mocha */
 (function (undefined) {
 	var	DEBUG, doPost, search, url, index, submitTimeout, 
 		beatRate, defaultBeatRate, testFrameworks, onErrorFnPrev;
@@ -250,7 +249,7 @@
 		}
 
 		if ( DEBUG ) {
-			alert( debugObj( params ) ) ;
+			window.alert( debugObj( params ) ) ;
 		}
 
 		if ( doPost ) {
@@ -273,7 +272,7 @@
 			}
 
 			if ( DEBUG ) {
-				alert( url );
+				window.alert( url );
 
 			} else {
 				// Watch for the result submission timing out
@@ -309,9 +308,7 @@
 	// Returning true will surpress the default browser handler,
 	// returning false will let it run.
 	window.onerror = function ( error, filePath, linerNr ) {
-		log( 'ERROR: ' + error );
-		
-		var ret = false;
+		var ret = false, report;
 		if ( onErrorFnPrev ) {
 			ret = onErrorFnPrev( error, filePath, linerNr );
 		}
@@ -319,7 +316,12 @@
 		// Treat return value as window.onerror itself does,
 		// Only do our handling if not surpressed.
 		if ( ret !== true ) {
-			document.body.appendChild( document.createTextNode( '[TestSwarm] window.onerror: ' + error ) );
+			report = document.createElement( 'div' );
+			report.innerHTML = '<hr/><b>[TestSwarm] window.onerror:</b><br/>';
+			report.appendChild( document.createTextNode( error ) );
+			report.appendChild( document.createElement( 'br' ) );
+			report.appendChild( document.createTextNode( 'in ' + filePath + ' on line ' + linerNr ) );
+			document.body.appendChild( report );
 			submit({ fail: 0, error: 1, total: 1 });
 
 			return false;
@@ -591,7 +593,7 @@
 						message: msg,
 						cssClass: 'test'
 					} );
-				};
+				});
 				
 				QUnit.moduleStart = function( name ) {
 					moduleCount++;
@@ -619,12 +621,6 @@
 				window.TestSwarm.serialize = function () {
 					var ol, i;
 
-					// Clean up the HTML (remove any un-needed test markup)
-					remove( 'nothiddendiv' );
-					remove( 'loadediframe' );
-					remove( 'dl' );
-					remove( 'main' );
-
 					// Show any collapsed results
 					ol = document.getElementsByTagName( 'ol' );
 					for ( i = 0; i < ol.length; i += 1 ) {
@@ -643,6 +639,7 @@
 				return typeof Test !== 'undefined' && Test && Test.Unit && Test.Unit.runners;
 			},
 			install: function () {
+				/*jshint loopfunc:true */
 				var	total_runners = Test.Unit.runners.length,
 					cur_runners = 0,
 					i;
@@ -815,6 +812,64 @@
 				});
 
 				window.TestSwarm.serialize = function () {
+					return trimSerialize();
+				};
+			}
+		},
+
+		// Mocha
+		// http://visionmedia.github.com/mocha/
+		'Mocha': {
+			detect: function () {
+				return typeof Mocha !== 'undefined' && typeof mocha !== 'undefined';
+			},
+			install: function () {
+				// Tab into the run method to install our hooks.
+				// Use the mocha instance instead of the prototype, because
+				// the mocha instance (HTMLReporter) also overloads .run.
+				// This ensures our code runs after HTMLReporter is done.
+				var run = mocha.run;
+				mocha.run = function (fn) {
+					var runner;
+
+					// Sometimes (in IE9?) the 'end' event has already fired.
+					// Registering on('end', fn) afterwards doesn't work.
+					// So we use the .run(fn) callback instead, which is called
+					// internally by Mocha right after the 'end' event.
+					runner = run.call(this, function () {
+						if (fn) {
+							// Call the original callback given to .run(fn)
+							fn.apply(this, arguments);
+		}
+						// `runner` can sometimes still be undefined here (at least in IE9).
+						// Let the function return and pick up asynchronously
+						// so the variable has been assigned.
+						setTimeout(function () {
+							submit({
+								fail: runner.failures,
+								total: runner.total,
+								error: 0
+							});
+						}, 1);
+					});
+
+					runner.on('start', window.TestSwarm.heartbeat);
+					runner.on('suite', window.TestSwarm.heartbeat);
+					runner.on('test end', window.TestSwarm.heartbeat);
+					runner.on('pass', window.TestSwarm.heartbeat);
+					runner.on('fail', window.TestSwarm.heartbeat);
+
+					return runner;
+	};
+
+				window.TestSwarm.serialize = function () {
+					var i, len, els;
+					els = document.getElementsByTagName('pre');
+					// Expand all source code sections, because we submit a static
+					// snapshot to TestSwarm, event handlers don't survive.
+					for ( i = 0, len = els.length; i < len; i++ ) {
+						els[i].style.display = 'inline-block';
+					}
 					return trimSerialize();
 				};
 			}

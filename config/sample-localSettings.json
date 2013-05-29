@@ -1,0 +1,74 @@
+{
+	"database": {
+		"host": "localhost",
+		"database": "testswarm",
+		"username": "root",
+		"password": "root"
+	},
+	"web": {
+		"contextpath": "/testswarm"
+	},
+	"storage": {
+		"cacheDir": "$1/cache"
+	},
+	"userAgents": {
+		"Chrome22": {
+			"browserFamily": "Chrome",
+			"browserMajor": "22"
+		},
+		"Chrome23": {
+			"browserFamily": "Chrome",
+			"browserMajor": "23"
+		},
+		"Firefox18": {
+			"browserFamily": "Firefox",
+			"browserMajor": "18"
+		},
+		"IE10": {
+			"browserFamily": "IE",
+			"browserMajor": "10"
+		},
+		"Safari5Win": {
+			"browserFamily": "Safari",
+			"browserMajor": "5",
+			"browserMinor": "1",
+			"osFamily": "Windows XP"
+		},
+		"Safari6": {
+			"browserFamily": "Safari",
+			"browserMajor": "6"
+		},
+		"Opera12.0": {
+			"browserFamily": "Opera",
+			"browserMajor": "12",
+			"browserMinor": "0*"
+		},
+		"Android2.3": {
+			"osFamily": "Android",
+			"osMajor": "2",
+			"osMinor": "3"
+		},
+		"iOS5.1": {
+			"osFamily": "iOS",
+			"osMajor": "5",
+			"osMinor": "1"
+		},
+		"iOS6/iPad": {
+			"deviceFamily": "iPad",
+			"osFamily": "iOS",
+			"osMajor": "6"
+		}
+	},
+	"browserSets": {
+		"example": [
+			"Chrome23",
+			"Firefox18",
+			"IE10",
+			"Opera12.0",
+			"Safari6",
+			"Android2.3",
+			"iOS5.1",
+			"iOS6/iPad"
+		]
+	}
+}

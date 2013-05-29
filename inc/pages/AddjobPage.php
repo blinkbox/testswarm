@@ -36,7 +36,7 @@ class AddjobPage extends Page {
 					. '">Job ' . $data["id"] . '</a> has been created!</strong><br>'
 					. $data["runTotal"] . ' runs have been scheduled to be ran in ' . $data["uaTotal"]
 					. ' different browsers.<br><br>'
-					. '<a class="btn btn-primary btn-small" href="' . htmlspecialchars( swarmpath( "job/{$data["id"]}" ) )
+					. '<a class="btn btn-primary" href="' . htmlspecialchars( swarmpath( "job/{$data["id"]}" ) )
 					. '">continue to job page &raquo;</a>'
 					. '</div>';
 			}
@@ -50,28 +50,31 @@ class AddjobPage extends Page {
 	protected function getAddjobFormHtml() {
 		$conf = $this->getContext()->getConf();
 		$request = $this->getContext()->getRequest();
+		$auth = $this->getContext()->getAuth();
 
-		$swarmUaIndex = BrowserInfo::getSwarmUAIndex();
+		$browserIndex = BrowserInfo::getBrowserIndex();
 
-		$addjobPageUrl = htmlspecialchars( swarmpath( "addjob" ) );
-		$userName = $request->getSessionData( "username" ) && $request->getSessionData( "auth" ) == "yes"  ? htmlspecialchars( $request->getSessionData( "username" ) ) : "";
+		$addjobPageUrlEsc = htmlspecialchars( swarmpath( 'addjob' ) );
+
+		$authIDEsc = htmlspecialchars( $request->getVal( 'authID', $auth ? $auth->project->id : '' ) );
+		$authTokenEsc = htmlspecialchars( $request->getVal( 'authToken', $auth ? $auth->sessionToken : '' ) );
 
 		$formHtml = <<<HTML
-<form action="$addjobPageUrl" method="post" class="form-horizontal">
+<form action="$addjobPageUrlEsc" method="post" class="form-horizontal">
 
 	<fieldset>
 		<legend>Authentication</legend>
 
 		<div class="control-group">
-			<label class="control-label" for="form-authUsername">User name:</label>
+			<label class="control-label" for="form-authID">Project ID:</label>
 			<div class="controls">
-				<input type="text" name="authUsername" value="$userName" id="form-authUsername">
+				<input type="text" name="authID" required value="$authIDEsc" id="form-authID">
 			</div>
 		</div>
 		<div class="control-group">
 			<label class="control-label" for="form-authToken">Auth token:</label>
 			<div class="controls">
-				<input type="text" name="authToken" id="form-authToken" class="input-xlarge">
+				<input type="text" name="authToken" required value="$authTokenEsc" id="form-authToken" class="input-xlarge">
 			</div>
 		</div>
 	</fieldset>
@@ -82,14 +85,14 @@ class AddjobPage extends Page {
 		<div class="control-group">
 			<label class="control-label" for="form-jobName">Job name:</label>
 			<div class="controls">
-				<input type="text" name="jobName" id="form-jobName" class="input-xlarge" maxlength="255">
+				<input type="text" name="jobName" required maxlength="255" id="form-jobName" class="input-xlarge">
 				<span class="help-inline">HTML, up to 255 characters</span>
 			</div>
 		</div>
 		<div class="control-group">
 			<label class="control-label" for="form-runMax">Run max:</label>
 			<div class="controls">
-				<input type="number" size="5" name="runMax" id="form-runMax" value="2" min="1" max="99">
+				<input type="number" name="runMax" required min="1" max="99" value="2" id="form-runMax" size="5">
 				<p class="help-block">This is the maximum number of times a run is ran in a user agent. If a run passes
 				without failures then it is only ran once. If it does not pass, TestSwarm will re-try the run
 				(up to "Run max" times) for that useragent to avoid error pollution due to time-outs, slow
@@ -105,17 +108,20 @@ class AddjobPage extends Page {
 		overlap each other, TestSwarm will detect and remove duplicate entries in the resulting set.</p>
 
 HTML;
-		foreach ( $conf->browserSets as $set => $browsers ) {
-			$set = htmlspecialchars( $set );
+		foreach ( $conf->browserSets as $browserSet => $browsers ) {
+			$set = htmlspecialchars( $browserSet );
 			$browsersHtml = '';
-			$last = count( $browsers ) - 1;
-			foreach ( $browsers as $i => $browser ) {
-				if ( $i !== 0 ) {
-					$browsersHtml .= $i === $last ? '<br> and ' : ',<br>';
-				} else {
+			$last = count( $browsers ) -1;
+			foreach ( $browsers as $i => $uaID ) {
+				$uaData = $browserIndex->$uaID;
+				if ( $i === 0 ) {
 					$browsersHtml .= '<br>';
+				} elseif ( $i === $last ) {
+					$browsersHtml .= '<br> and ';
+				} else {
+					$browsersHtml .= ',<br>';
 				}
-				$browsersHtml .= htmlspecialchars( $swarmUaIndex->$browser->displaytitle );
+				$browsersHtml .= htmlspecialchars( $uaData->displayInfo['title'] );
 			}
 			$formHtml .= <<<HTML
 		<div class="control-group">

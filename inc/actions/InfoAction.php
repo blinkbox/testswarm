@@ -27,10 +27,6 @@ class InfoAction extends Action {
 				"client" => $conf->client,
 				"browserSets" => $conf->browserSets,
 			),
-			"session" => array(
-				"username" => $request->getSessionData( "username" ),
-				"authenticated" => $request->getSessionData( "auth" ) === "yes",
-			),
 		);
 
 		$this->setData( $info );

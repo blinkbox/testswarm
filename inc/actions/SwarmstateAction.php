@@ -10,17 +10,18 @@
 class SwarmstateAction extends Action {
 
 	/**
-	 * @requestParam browserSet string: Show useragents from a specific
-	 * browserset only.
-	 * @requestParam onlyactive bool: If true, only user agents that
-	 * have online clients and/or pending runs are included.
-	 * If both "browserSet" and "onlyactive" are used, the overlaping
-	 * subset will be output.
+	 * @actionParam string browserSet: Show useragents from a specific
+	 *  browserset only.
+	 * @actionParam bool onlyactive: If true, only user agents that
+	 *  have online clients and/or pending runs are included.
+	 *  If both "browserSet" and "onlyactive" are used, the overlaping
+	 *  subset will be output.
 	 */
 	public function doAction() {
-		$conf = $this->getContext()->getConf();
-		$db = $this->getContext()->getDB();
-		$request = $this->getContext()->getRequest();
+		$context = $this->getContext();
+		$conf = $context->getConf();
+		$db = $context->getDB();
+		$request = $context->getRequest();
 
 		$showOnlyactive = $request->getBool( 'onlyactive' );
 
@@ -30,12 +31,17 @@ class SwarmstateAction extends Action {
 			'userAgents' => array(),
 		);
 
-		$uaIndex = BrowserInfo::getSwarmUAIndex();
+		$browserIndex = BrowserInfo::getBrowserIndex();
 
-		foreach ( $uaIndex as $uaID => $uaData ) {
-			if ( $filterBrowserSet && isset( $conf->browserSets->$filterBrowserSet )
-					&& !in_array( $uaID, $conf->browserSets->$filterBrowserSet )
-			) {
+		$browserSetByUaId = array();
+		foreach ( $conf->browserSets as $browserSet => $browsers ) {
+			foreach ( $browsers as $browser ) {
+				$browserSetByUaId[$browser] = $browserSet;
+			}
+		}
+
+		foreach ( $browserIndex as $uaID => $uaData ) {
+			if ( $filterBrowserSet && $browserSetByUaId[$uaID] !== $filterBrowserSet ) {
 				continue;
 			}
 
@@ -45,9 +51,9 @@ class SwarmstateAction extends Action {
 					COUNT(id)
 				FROM clients
 				WHERE useragent_id = %s
-				AND   updated > %s',
+				AND   updated >= %s',
 				$uaID,
-				swarmdb_dateformat( time() - ( $conf->client->pingTime + $conf->client->pingTimeMargin ) )
+				swarmdb_dateformat( Client::getMaxAge( $context ) )
 			));
 			$clients = intval( $clients );
 
@@ -87,8 +93,10 @@ class SwarmstateAction extends Action {
 			));
 			$pendingReRuns = intval( $pendingReRuns );
 
-			if ( $showOnlyactive && !$clients && !$activeRuns && !$pendingRuns && !$pendingReRuns ) {
-				continue;
+			if ( !$clients && !$activeRuns && !$pendingRuns && !$pendingReRuns ) {
+				if ( $showOnlyactive || !isset( $browserSetByUaId[$uaID] ) ) {
+					continue;
+				}
 			}
 
 			$data['userAgents'][$uaID] = array(
@@ -101,6 +109,11 @@ class SwarmstateAction extends Action {
 				),
 			);
 		}
+
+		// Make sure they are sorted nicely
+		uasort( $data['userAgents'], function ( $a, $b ) {
+			return strnatcasecmp( $a['data']->displayInfo['title'], $b['data']->displayInfo['title'] );
+		} );
 
 		$this->setData( $data );
 	}

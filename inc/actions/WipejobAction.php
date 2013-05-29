@@ -12,56 +12,48 @@ class WipejobAction extends Action {
 	/**
 	 * @actionMethod POST: Required.
 	 * @actionParam int job_id
-	 * @actionParam string type: one of 'delete', 'reset'
+	 * @actionParam string type: one of 'delete', 'reset'.
+	 * @actionAuth: Required.
 	 */
 	public function doAction() {
 		$db = $this->getContext()->getDB();
 		$request = $this->getContext()->getRequest();
 
-		if ( !$request->wasPosted() ) {
-			$this->setError( "requires-post" );
-			return;
-		}
-
-		$jobID = $request->getInt( "job_id" );
-		$wipeType = $request->getVal( "type" );
+		$jobID = $request->getInt( 'job_id' );
+		$wipeType = $request->getVal( 'type' );
 
 		if ( !$jobID || !$wipeType ) {
-			$this->setError( "missing-parameters" );
+			$this->setError( 'missing-parameters' );
 			return;
 		}
 
 		if ( !in_array( $wipeType, array( "delete", "reset", "cancel" ) ) ) {
-			$this->setError( "invalid-input" );
+			$this->setError( 'invalid-input', 'Invalid wipeType' );
 			return;
 		}
 
-		$jobOwner = $db->getOne(str_queryf(
-			"SELECT
-				users.name as user_name
-			FROM jobs, users
-			WHERE jobs.id = %u
-			AND   users.id = jobs.user_id
-			LIMIT 1;",
+		$projectID = $db->getOne(str_queryf(
+			'SELECT
+				project_id
+			FROM jobs
+			WHERE id = %u;',
 			$jobID
 		));
 
-		if ( !$jobOwner ) {
-			// Job row by this ID didn't exist
-			$this->setError( "invalid-input" );
+		if ( !$projectID ) {
+			$this->setError( 'invalid-input', 'Job not found' );
 			return;
 		}
 
 		// Check authentication
-		if ( $request->getSessionData( "auth" ) !== "yes" || $request->getSessionData( "username" ) !== $jobOwner ) {
-			$this->setError( "requires-auth" );
+		if ( !$this->doRequireAuth( $projectID ) ) {
 			return;
 		}
 
 		$runRows = $db->getRows(str_queryf(
-			"SELECT id
+			'SELECT id
 			FROM runs
-			WHERE job_id = %u;",
+			WHERE job_id = %u;',
 			$jobID
 		));
 
@@ -70,22 +62,22 @@ class WipejobAction extends Action {
 				switch( $wipeType ) {
 					case "delete":
 						$db->query(str_queryf(
-							"DELETE
+						'DELETE
 							FROM run_useragent
-							WHERE run_id = %u;",
+						WHERE run_id = %u;',
 							$runRow->id
 						));
 						break;
 						
 					case "reset":
 						$db->query(str_queryf(
-							"UPDATE run_useragent
+						'UPDATE run_useragent
 							SET
 								status = 0,
 								completed = 0,
 								results_id = NULL,
 								updated = %s
-							WHERE run_id = %u;",
+						WHERE run_id = %u;',
 							swarmdb_dateformat( SWARM_NOW ),
 							$runRow->id
 						));
@@ -111,25 +103,25 @@ class WipejobAction extends Action {
 		// can sometimes be created without any runs (by accidently).
 		// Those should be deletable as well, thus this has to be outside the loop.
 		// Also, no  need to do this in a loop, just delete them all in one query.
-		if ( $wipeType === "delete" ) {
+		if ( $wipeType === 'delete' ) {
 			$db->query(str_queryf(
-				"DELETE
+				'DELETE
 				FROM runs
-				WHERE job_id = %u;",
+				WHERE job_id = %u;',
 				$jobID
 			));
 			$db->query(str_queryf(
-				"DELETE
+				'DELETE
 				FROM jobs
-				WHERE id = %u;",
+				WHERE id = %u;',
 				$jobID
 			));
 		}
 
 		$this->setData( array(
-			"jobID" => $jobID,
-			"type" => $wipeType,
-			"result" => "ok",
+			'jobID' => $jobID,
+			'type' => $wipeType,
+			'result' => 'ok',
 		) );
 	}
 }

@@ -45,6 +45,8 @@ abstract class Page {
 	protected $displayNavBar = true;
 	protected $useContainerCssClass = true;
 	
+	protected $frameOptions = 'DENY';
+
 	/**
 	 * The execution method is where a Page invokes the main
 	 * action logic. This logic should be handled by an Action class
@@ -135,6 +137,46 @@ abstract class Page {
 		return $this->content;
 	}
 
+	/** @param bool|string $val
+	 * - false: Allow all framing
+	 * - 'SAMEORIGIN'
+	 * - 'DENY'
+	 */
+	public function setFrameOptions( $val ) {
+		$this->frameOptions = $val;
+	}
+
+	/** @return bool|string */
+	public function getFrameOptions() {
+		return $this->frameOptions;
+	}
+
+	protected function getSelfPath() {
+		$className = strtolower( get_class( $this ) );
+		if ( substr( $className, -4 ) === 'page' ) {
+			$path = substr( $className, 0, -4 );
+		} else {
+			$path = $className;
+		}
+		$item = $this->getContext()->getRequest()->getVal( 'item' );
+		if ( $item !== null ) {
+			$path .= "/$item";
+		}
+		return $path;
+	}
+
+	protected function getPageLink( $path, $label ) {
+		return
+			html_tag_open( 'li', array(
+				'class' => strpos( $this->getSelfPath(), $path ) === 0 ? 'active' : null,
+			) )
+			.  html_tag( 'a', array(
+				'href' => swarmpath( $path === 'home' ? '' : $path )
+			), $label
+			)
+			. '</li>' . "\n";
+	}
+
 	/**
 	 * Be careful to never throw exceptions from here if we're already
 	 * on the Error500Page. e.g. if content of FooPage is empty, this throws
@@ -156,9 +198,16 @@ abstract class Page {
 			throw new SwarmException( "Headers already sent in `$filename` on line $linenum." );
 		}
 
-		header( 'Content-Type: text/html; charset=utf-8' );
+		header( 'Content-Type: text/html; charset=UTF-8' );
 
-		$request = $this->getContext()->getRequest();
+		$frameOptions = $this->getFrameOptions();
+		if ( $frameOptions ) {
+			header( 'X-Frame-Options: ' . $frameOptions, true );
+		}
+
+		$context = $this->getContext();
+		$request = $context->getRequest();
+		$auth = $context->getAuth();
 
 		// ProjectsAction could throw an exception, which needs to be caught here,
 		// since Error500Page (exception handler) also uses Page::output() eventually.
@@ -169,18 +218,12 @@ abstract class Page {
 
 		if ( !isset( $this->exceptionObj ) ) {
 			try {
-				$projectsActionContext = $this->getContext()->createDerivedRequestContext(
-					array(
-						'action' => 'projects',
-						'sort' => 'name',
-						'sort_oder' => 'asc',
-					)
-				);
-				$projectsAction = ProjectsAction::newFromContext( $projectsActionContext );
+				$projectsAction = ProjectsAction::newFromContext( $context );
 				$projectsAction->doAction();
 				$projects = $projectsAction->getData();
+
 			} catch ( Exception $e ) {
-				$pageObj = Error500Page::newFromContext( $this->getContext() );
+				$pageObj = Error500Page::newFromContext( $context );
 				$pageObj->setExceptionObj( $e );
 				$pageObj->output();
 				exit;
@@ -188,7 +231,7 @@ abstract class Page {
 		}
 ?>
 <!DOCTYPE html>
-<html lang="en" dir="ltr">
+<html lang="en" dir="ltr" class="no-js">
 <head>
 <?php
 
@@ -197,29 +240,34 @@ abstract class Page {
 	}
 
 	$subTitleSuffix = $this->getSubTitle() ? ": {$this->getSubTitle()}" : "";
-	$htmlTitle = $this->getTitle() . $subTitleSuffix . ' - ' . $this->getContext()->getConf()->web->title;
+	$htmlTitle = $this->getTitle() . $subTitleSuffix . ' - ' . $context->getConf()->web->title;
 	$displayTitleHtml = $this->getDisplayTitleHtml();
 ?>
 	<title><?php echo htmlentities( $htmlTitle ); ?></title>
-	<link rel="stylesheet" href="<?php echo isMaple () ? swarmpath( 'css/bootstrapsamsung.css' ) : swarmpath( 'css/bootstrap.min.css' ); ?>">
-	<link rel="stylesheet" href="<?php echo isMaple () ? swarmpath( 'css/testswarmsamsung.css' ) : swarmpath( 'css/testswarm.css' ); ?>">
-	<script src="<?php echo swarmpath( 'js/jquery.js' ); ?>"></script>
-	<script src="<?php echo swarmpath( 'js/bootstrap-dropdown.js' ); ?>"></script>
-	<script>window.SWARM = <?php
-		$infoAction = InfoAction::newFromContext( $this->getContext() );
+	<link rel="stylesheet" href="<?php echo isMaple () ? swarmpath( 'css/bootstrap.samsung.css' ) : swarmpath( 'css/bootstrap.min.css' ); ?>">
+	<link rel="stylesheet" href="<?php echo isMaple () ? swarmpath( 'css/bootstrap-responsive.samsung.css' ) : swarmpath( 'css/bootstrap-responsive.css' ); ?>">
+	<link rel="stylesheet" href="<?php echo isMaple () ? swarmpath( 'css/testswarm.samsung.css' ) : swarmpath( 'css/testswarm.css' ); ?>">
+	<script>
+	(function (h) { h.className = h.className.replace(/\bno-js\b/,'js')})(document.documentElement);
+	SWARM = <?php
+	$infoAction = InfoAction::newFromContext( $context );
 		$infoAction->doAction();
 		echo json_encode( $infoAction->getData() );
-	?>;</script><?php
+?>;
+	SWARM.auth = <?php
+	echo json_encode( $auth );
+?>;
+	</script>
+<?php
 
 	foreach ( $this->styleSheets as $styleSheet ) {
-		echo "\n\t" . html_tag( 'link', array( 'rel' => 'stylesheet', 'href' => $styleSheet ) );
+		echo "\t" . html_tag( 'link', array( 'rel' => 'stylesheet', 'href' => $styleSheet ) ) . "\n";
 	}
 
 	foreach ( $this->headScripts as $headScript ) {
-		echo "\n\t" . html_tag( 'script', array( 'src' => $headScript ) );
+		echo "\t" . html_tag( 'script', array( 'src' => $headScript ) ) . "\n";
 	}
-?>
-</head>
+?></head>
 <body>
 <?php
 	if ( $this->displayNavBar ) {
@@ -227,52 +275,47 @@ abstract class Page {
 	<div class="navbar navbar-fixed-top">
 		<div class="navbar-inner">
 			<div class="container">
-				<a class="brand" href="<?php echo swarmpath( '' );?>"><?php echo htmlspecialchars( $this->getContext()->getConf()->web->title ); ?></a>
-				<div class="nav-collapse">
+				<a class="brand" href="<?php echo swarmpath( '' );?>"><?php echo htmlspecialchars( $context->getConf()->web->title ); ?></a>
 					<ul class="nav">
-						<li class="dropdown" id="swarm-projectsmenu">
-							<a href="<?php echo swarmpath( 'projects' ); ?>" class="dropdown-toggle" data-toggle="dropdown" data-target="#swarm-projectsmenu">
+					<?php echo $this->getPageLink( 'home', 'Home' ); ?>
+					<li class="dropdown<?php
+						if ( strpos( $this->getSelfPath(), 'projects' ) === 0 ) {
+							echo ' active';
+						}
+					?>">
+						<a href="<?php echo swarmpath( 'projects' ); ?>" class="dropdown-toggle" data-toggle="dropdown">
 								Projects
 								<b class="caret"></b>
 							</a>
 							<ul class="dropdown-menu">
-								<li><a href="<?php echo swarmpath( 'projects' ); ?>">All projects</a></li>
+							<?php echo $this->getPageLink( 'projects', 'All projects' ); ?>
 								<li class="divider"></li>
 								<li class="nav-header">Projects</li>
 <?php
 foreach ( $projects as $project ) {
-?>
-								<li><a href="<?php echo htmlspecialchars( swarmpath( "user/{$project['name']}" ) ); ?>"><?php
-									echo htmlspecialchars( $project['name'] );
-								?></a></li>
-<?php
+	echo $this->getPageLink( "project/{$project['id']}", $project['displayTitle'] );
 }
 ?>
 							</ul>
 						</li>
-						<li><a href="<?php echo swarmpath( 'scores' ); ?>">Scores</a></li>
+					<?php echo $this->getPageLink( 'clients', 'Clients' ); ?>
+					<?php echo $this->getPageLink( 'info', 'Info' ); ?>
 						<li><a href="<?php echo swarmpath( 'dashboard' ); ?>#table">Dashboard</a></li>
-						<li><a href="<?php echo swarmpath( 'info' ); ?>">Info</a></li>
 						<li><a href="<?php echo swarmpath( 'resetUserCookies.html' ); ?>">Reset Cookies</a></li>
 					</ul>
 					<ul class="nav pull-right">
 <?php
-	if ( $request->getSessionData( 'username' ) && $request->getSessionData( 'auth' ) == "yes" ) {
-		$username = htmlspecialchars( $request->getSessionData( 'username' ) );
+if ( $auth ) {
 ?>
-						<li><a href="<?php echo swarmpath( "user/$username" ); ?>">Hello, <?php echo $username;?>!</a></li>
-						<li><a href="<?php echo swarmpath( "run/$username" );?>">Join the Swarm</a></li>
-						<li><a href="<?php echo swarmpath( 'logout' ); ?>">Logout</a></li>
+					<li><a href="<?php echo htmlspecialchars( swarmpath( "project/{$auth->project->id}" ) ); ?>"><?php echo htmlspecialchars( $auth->project->display_title ) ;?></a></li>
+					<li><a href="<?php echo swarmpath( "addjob" );?>">Add job</a></li>
+					<li><a href="<?php echo swarmpath( 'logout' ); ?>" class="swarm-logout-link">Logout</a></li>
 <?php
 	} else {
-?>
-						<li><a href="<?php echo swarmpath( 'login' ); ?>">Login</a></li>
-						<li><a href="<?php echo swarmpath( 'signup' ); ?>">Signup</a></li>
-<?php
+	echo $this->getPageLink( 'login', 'Login' );
 	}
 ?>
 					</ul>
-				</div><!--/.nav-collapse -->
 			</div>
 		</div>
 	</div>
@@ -299,14 +342,16 @@ if ( $this->useContainerCssClass ) {
 
 		<hr>
 		<footer class="swarm-page-footer">
-			<p>Powered by <a href="//github.com/jquery/testswarm">TestSwarm</a>:
-			<a href="//github.com/jquery/testswarm">Source Code</a>
-			| <a href="//github.com/jquery/testswarm/issues">Issue Tracker</a>
-			| <a href="//github.com/jquery/testswarm/wiki">About</a>
-			| <a href="//twitter.com/testswarm">Twitter</a>
+			<p>Powered by <a href="https://github.com/jquery/testswarm">TestSwarm</a>:
+			<a href="https://github.com/jquery/testswarm">Source Code</a>
+			| <a href="https://github.com/jquery/testswarm/issues">Issue Tracker</a>
+			| <a href="https://github.com/jquery/testswarm/wiki">About</a>
+			| <a href="https://twitter.com/testswarm">Twitter</a>
 			</p>
 		</footer>
 	</div>
+	<script src="<?php echo swarmpath( 'js/jquery.js' ); ?>"></script>
+	<script src="<?php echo swarmpath( 'js/bootstrap-dropdown.js' ); ?>"></script>
 	<script src="<?php echo swarmpath( 'js/pretty.js' ); ?>"></script>
 	<script src="<?php echo swarmpath( 'js/testswarm.js' ); ?>"></script><?php
 
@@ -314,8 +359,8 @@ if ( $this->useContainerCssClass ) {
 		echo "\n\t" . html_tag( 'script', array( 'src' => $bodyScript ) );
 	}
 
-	if ( $this->getContext()->getConf()->debug->dbLogQueries ) {
-		$queryLog = $this->getContext()->getDB()->getQueryLog();
+	if ( $context->getConf()->debug->dbLogQueries ) {
+		$queryLog = $context->getDB()->getQueryLog();
 		$queryLogHtml = '<hr><h3>Database query log</h3><div class="well"><ul class="unstyled">';
 		foreach ( $queryLog as $i => $queryInfo ) {
 			if ( $i !== 0 ) {
@@ -357,8 +402,8 @@ if ( $this->useContainerCssClass ) {
 		. ' - '
 		. $this->getContext()->getConf()->web->title
 	); ?></title>
-	<link rel="stylesheet" href="<?php echo isMaple () ? swarmpath( 'css/bootstrapsamsung.css' ) : swarmpath( 'css/bootstrap.min.css' ); ?>">
-	<link rel="stylesheet" href="<?php echo isMaple () ? swarmpath( 'css/testswarmsamsung.css' ) : swarmpath( 'css/testswarm.css' ); ?>">
+	<link rel="stylesheet" href="<?php echo isMaple () ? swarmpath( 'css/bootstrap.samsung.css' ) : swarmpath( 'css/bootstrap.min.css' ); ?>">
+	<link rel="stylesheet" href="<?php echo isMaple () ? swarmpath( 'css/testswarm.samsung.css' ) : swarmpath( 'css/testswarm.css' ); ?>">
 </head>
 <body>
 <div class="hero-unit">
@@ -385,7 +430,7 @@ if ( $this->useContainerCssClass ) {
 		session_write_close();
 		self::httpStatusHeader( $code );
 		header( 'Content-Type: text/html; charset=utf-8' );
-		header( "Location: " . $target );
+		header( 'Location: ' . $target );
 
 		exit;
 	}
@@ -396,10 +441,12 @@ if ( $this->useContainerCssClass ) {
 	 * @param string $propNamePrefix
 	 * @return string: HTML
 	 */
-	protected function getPrettyDateHtml( $data, $propNamePrefix ) {
-		return '<span title="'
-			. htmlspecialchars( $data[$propNamePrefix . 'ISO'] ) . '" class="pretty">'
-			. htmlspecialchars( $data[$propNamePrefix . 'LocalFormatted'] ) . '</span>';
+	protected static function getPrettyDateHtml( $data, $propNamePrefix, $attr = array() ) {
+		return html_tag( 'span', array(
+			'data-timestamp' => $data[$propNamePrefix . 'ISO'],
+			'title' => $data[$propNamePrefix . 'LocalFormatted'],
+			'class' => 'pretty' . ( isset( $attr['class'] ) ? ' ' . $attr['class'] : '' )
+		) + $attr, $data[$propNamePrefix . 'LocalShort'] );
 	}
 
 	protected function setRobots( $value ) {

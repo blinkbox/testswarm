@@ -55,30 +55,31 @@ h2 + .row {
 	text-align: right;
 }
 
-.swarm-browseronline {
+.well-swarm-icon {
 	position: relative;
+	padding: 9px;
 	text-align: center;
 }
 
-.swarm-browseronline .swarm-onlineclients {
+.well-swarm-icon .swarm-onlineclients {
 	position: absolute;
 	top: 5px;
 	right: 5px;
 	line-height: normal;
 }
 
-.swarm-browseronline .swarm-browsericon {
-	height: 48px;
-	margin: 10px 0;
+.well-swarm-icon .swarm-icon {
+	margin-top: 10px;
+	margin-bottom: 7px;
 }
 
-.swarm-browseronline .swarm-onlineclients,
-.swarm-browseronline .swarm-browsername {
-	font-size: 11px;
-}
-
-.swarm-browseronline .swarm-browsername:hover {
+.swarm-browsername:hover {
 	cursor: default;
+}
+
+.swarm-browsername {
+	/* Inline bubble with line breaks */
+	display: inline-block;
 }
 
 /**
@@ -99,67 +100,127 @@ h2 + .row {
  * and error:  hsl(0,   44%, 89%) / hsl(0,   32%, 40%)
  */
 
-table.swarm-results thead th,
-table.swarm-results tbody td.swarm-status {
-	text-align: center;
+.swarm-pagination {
+	overflow: hidden;
+}
+
+.swarm-pagination-prev {
+	cursor: pointer;
+	float: left;
+}
+.swarm-pagination-next {
+	cursor: pointer;
+	float: right;
+}
+
+.swarm-pagination-disabled {
+	cursor: default;
+	color: #888;
+}
+
+.swarm-results,
+.table th {
+	white-space: nowrap;
+}
+
+/**
+ * Some of Bootstrap's table styling
+ * have a lot of weight on their selector,
+ * such as:
+ *     .table-striped tbody tr:nth-child(odd) td { background-color: #f9f9f9; }
+ * Putting .swarm-status on that (with the right background color) would require
+ * a lot of specificity. So, instead, we allow the status to be in a child <div>
+ * or the table cell. In that case though, we need to transfer the inner padding
+ * from the bootstrap class (.table) cell to ours.
+ */
+.table .swarm-status-cell {
+	padding: 0;
+}
+
+.swarm-jobstatus-cell .swarm-status [class^="icon-"] {
+	float: right;
+}
+
+.swarm-status {
+	padding: 8px;
+	line-height: 20px;
+}
+
+.swarm-results thead th,
+.swarm-status {
+	vertical-align: top;
 	background: #fff;
-}
-
-table.swarm-results th img.swarm-browsericon {
-	max-height: 28px;
-}
-
-table.swarm-results tbody td.swarm-status {
 	font-weight: bold;
 }
 
-table.swarm-results tbody td.swarm-status-new {
-	background: #E8E8E8;
-}
-table.swarm-results tbody td.swarm-status-new,
-table.swarm-results tbody td.swarm-status-new a {
-	color: #666);
+.swarm-results thead th,
+.table .swarm-status, /* override Bootstrap .table text-align */
+.swarm-status {
+	text-align: center;
 }
 
-table.swarm-results tbody td.swarm-status-progress {
+.swarm-status [class*=" icon-"] {
+	opacity: .3;
+	margin-left: 7px;
+}
+
+.swarm-status:hover [class*=" icon-"] {
+	opacity: 1;
+	cursor: pointer;
+}
+
+.swarm-status-new {
+	background: #E8E8E8;
+}
+.swarm-status-new,
+.swarm-status-new a {
+	color: #666;
+}
+
+.swarm-status-progress {
 	background: #EFEBD7;
 }
 
-table.swarm-results tbody td.swarm-status-progress,
-table.swarm-results tbody td.swarm-status-progress a {
+.swarm-status-progress,
+.swarm-status-progress a {
 	color: #877B45;
 }
 
-table.swarm-results tbody td.swarm-status-passed {
+.swarm-status-passed {
 	background: #DBEFD7;
 }
-table.swarm-results tbody td.swarm-status-passed,
-table.swarm-results tbody td.swarm-status-passed a {
+.swarm-status-passed,
+.swarm-status-passed a {
 	color: #508745;
 }
 
-table.swarm-results tbody td.swarm-status-timedout,
-table.swarm-results tbody td.swarm-status-heartbeat,
-table.swarm-results tbody td.swarm-status-error,
-table.swarm-results tbody td.swarm-status-failed {
+.swarm-status-timedout,
+.swarm-status-heartbeat,
+.swarm-status-error,
+.swarm-status-failed {
 	background: #EFD7D7;
 }
-table.swarm-results tbody td.swarm-status-cancelled {
-	background: #FFFFFF;
-}
-table.swarm-results tbody td.swarm-status-timedout,
-table.swarm-results tbody td.swarm-status-timedout a,
-table.swarm-results tbody td.swarm-status-heartbeat,
-table.swarm-results tbody td.swarm-status-heartbeat a,
-table.swarm-results tbody td.swarm-status-error,
-table.swarm-results tbody td.swarm-status-error a,
-table.swarm-results tbody td.swarm-status-failed,
-table.swarm-results tbody td.swarm-status-failed a {
-	color: #874545);
+.swarm-status-timedout,
+.swarm-status-timedout a,
+.swarm-status-heartbeat,
+.swarm-status-heartbeat a,
+.swarm-status-error,
+.swarm-status-error a,
+.swarm-status-failed,
+.swarm-status-failed a {
+	color: #874545;
 }
 
-table.swarm-results tbody td.swarm-status-notscheduled {
+.swarm-status-notscheduled {
 	background: #fff;
+}
+
+.swarm-result-date {
+	float: right;
+	padding: 0 0 0 1em;
+	font-weight: normal;
+	font-size: smaller;
+	color: #888;
 }
 
 .swarm-status-progressicon {
@@ -194,7 +255,192 @@ table.swarm-results tbody td.swarm-status-notscheduled {
 	animation-iteration-count: infinite;
 }
 
+.swarm-item-actions {
+	text-align: right;
+}
+
 .swarm-page-footer {
 	text-align: center;
 	margin-bottom: 18px;
+}
+
+.swarm-arrow-up {
+	display: inline-block;
+	content: "";
+	width: 0;
+	height: 0;
+	vertical-align: top;
+	border-left: 4px solid transparent;
+	border-right: 4px solid transparent;
+	border-bottom: 4px solid #000;
+}
+
+.swarm-arrow-down {
+	display: inline-block;
+	content: "";
+	width: 0;
+	height: 0;
+	vertical-align: top;
+	border-left: 4px solid transparent;
+	border-right: 4px solid transparent;
+	border-top: 4px solid #000;
+}
+
+.swarm-arrow-muted {
+	position: relative;
+	display: inline-block;
+	content: "";
+	width: 0;
+	height: 0;
+	vertical-align: top;
+	border-left: 4px solid transparent;
+	border-right: 4px solid transparent;
+	border-bottom: 4px solid #999;
+}
+
+.swarm-arrow-muted::after {
+	position: absolute;
+	top: 5px;
+	left: -4px;
+	display: inline-block;
+	content: "";
+	width: 0;
+	height: 0;
+	vertical-align: top;
+	border-left: 4px solid transparent;
+	border-right: 4px solid transparent;
+	border-top: 4px solid #999;
+}
+
+.swarm-toggle > .swarm-arrow-up,
+.swarm-toggle > .swarm-arrow-down,
+.swarm-toggle > .swarm-arrow-muted {
+	margin: 8px 2px 2px 2px;
+}
+
+.js .swarm-toggle {
+	cursor: pointer;
+}
+
+.no-js .swarm-arrow-up,
+.no-js .swarm-arrow-down,
+.no-js .swarm-arrow-muted {
+	display: none;
+}
+
+/**
+ * UA icons.
+ * Display device or browser, and os.
+ */
+
+.swarm-icon {
+	position: relative;
+	display: inline-block;
+	width: 80px;
+	height: 80px;
+	background: url(../img/browser-unknown.png) 50% 50% no-repeat;
+	background-size: contain;
+}
+
+.swarm-browser-chrome {
+	background-image: url(../img/browser-chrome.png);
+}
+
+.swarm-browser-chromium {
+	background-image: url(../img/browser-chromium.png);
+}
+
+.swarm-browser-firefox {
+	background-image: url(../img/browser-firefox.png);
+}
+
+.swarm-browser-firefox_mobile {
+	background-image: url(../img/browser-firefox_mobile.png);
+}
+
+/* IE9+ */
+.swarm-browser-ie {
+	background-image: url(../img/browser-ie.png);
+}
+
+.swarm-browser-ie-6 {
+	background-image: url(../img/browser-ie-6.png);
+}
+
+/* IE7/IE8 have the same logo */
+.swarm-browser-ie-7,
+.swarm-browser-ie-8 {
+	background-image: url(../img/browser-ie-8.png);
+}
+
+.swarm-browser-opera,
+.swarm-browser-opera_mini,
+.swarm-browser-opera_mobile {
+	background-image: url(../img/browser-opera.png);
+}
+
+.swarm-browser-safari,
+.swarm-browser-mobile_safari {
+	background-image: url(../img/browser-safari.png);
+}
+
+.swarm-browser-webkit_nightly {
+	background-image: url(../img/browser-webkit.png);
+}
+
+.swarm-device-ipad {
+	background-image: url(../img/device-ipad.png);
+}
+
+.swarm-device-iphone {
+	background-image: url(../img/device-iphone.png);
+}
+
+.swarm-os::after {
+	position: absolute;
+	bottom: -1px;
+	right: -1px;
+	content: "";
+	display: block;
+	width: 50%;
+	height: 50%;
+	border-radius: 50%;
+	box-sizing: border-box;
+	border: 7px solid transparent;
+	background: rgba(255, 255, 255, 0.85) 49% 50% no-repeat;
+	background-size: contain;
+}
+
+.swarm-os-android::after {
+	background-image: url(../img/os-android.png);
+}
+
+.swarm-os-ios::after {
+	background-image: url(../img/os-ios.png);
+}
+
+.swarm-os-mac_os_x::after {
+	background-image: url(../img/os-macosx.png);
+}
+
+.swarm-os-windows::after,
+.swarm-os-windows_xp::after {
+	background-image: url(../img/os-winxp.png);
+}
+
+.swarm-os-windows_vista::after,
+.swarm-os-windows_7::after {
+	background-image: url(../img/os-win7.png);
+}
+
+.swarm-os-windows_8::after {
+	background-image: url(../img/os-win8.png);
+}
+
+.swarm-icon-small {
+	max-width: 48px;
+	max-height: 48px;
+}
+.swarm-icon-small.swarm-os::after {
+	border-width: 3px;
 }

@@ -1,12 +1,10 @@
 <?php
 /**
  * "Addjob" action.
- * Addjob ignores the current session. Instead it uses tokens, which (although
- * all registered users have an auth token in the database), only trusted
- * users know their own token.
+ * Addjob ignores the current session. Instead it uses token.
  *
  * @author John Resig, 2008-2011
- * @author Timo Tijhof, 2012
+ * @author Timo Tijhof, 2012-2013
  * @since 0.1.0
  * @package TestSwarm
  */
@@ -14,26 +12,22 @@ class AddjobAction extends Action {
 
 	/**
 	 * @actionMethod POST: Required.
-	 * @actionParam authUsername string
-	 * @actionParam authToken string
-	 * @actionParam jobName string: May contain HTML.
-	 * @actionParam runMax int
-	 * @actionParam runNames array
-	 * @actionParam runUrls array
-	 * @actionParam browserSets array
+	 * @actionParam string jobName: May contain HTML.
+	 * @actionParam int runMax
+	 * @actionParam array runNames
+	 * @actionParam array runUrls
+	 * @actionParam array browserSets
+	 * @actionAuth: Required.
 	 */
 	public function doAction() {
 		$conf = $this->getContext()->getConf();
 		$db = $this->getContext()->getDB();
 		$request = $this->getContext()->getRequest();
 
-		if ( !$request->wasPosted() ) {
-			$this->setError( "requires-post" );
+		$projectID = $this->doRequireAuth();
+		if ( !$projectID ) {
 			return;
 		}
-
-		$authUsername = $request->getVal( "authUsername" );
-		$authToken = $request->getVal( "authToken" );
 
 		$jobName = $request->getVal( "jobName" );
 		$runMax = $request->getInt( "runMax" );
@@ -41,10 +35,10 @@ class AddjobAction extends Action {
 		$runUrls = $request->getArray( "runUrls" );
 		$browserSets = $request->getArray( "browserSets" );
 
-		if ( !$authUsername || !$authToken || !$jobName
-			|| !$runNames || count( $runNames ) === 0
-			|| !$runUrls || count( $runUrls ) === 0
-			|| !$browserSets || count( $browserSets ) === 0
+		if ( !$jobName
+			|| !$runNames || !count( $runNames )
+			|| !$runUrls || !count( $runUrls )
+			|| !$browserSets || !count( $browserSets )
 		) {
 			$this->setError( "missing-parameters" );
 			return;
@@ -90,43 +84,19 @@ class AddjobAction extends Action {
 			);
 		}
 
-		if ( count( $runs ) === 0 ) {
-			$this->setError( "missing-parameters", "Job must have atleast 1 run." );
-			return;
-		}
-
-		// Authenticate
-		/** not sure what auth should be so it's not used
-		* $authUserId = $db->getOne(str_queryf(
-		*	"SELECT id
-		*	FROM users
-		*	WHERE name = %s
-		*	AND   auth = %s;",
-		*	$authUsername,
-		*	$authToken
-		*));
-		*/
-		$authUserId = $db->getOne(str_queryf(
-			"SELECT id
-			FROM users
-			WHERE name = %s;",
-			$authUsername
-		));
-
-		if ( !$authUserId ) {
-			$this->setError( "invalid-input", "Authentication failed." );
+		if ( !count( $runs ) ) {
+			$this->setError( 'missing-parameters', 'Job must have atleast 1 run.' );
 			return;
 		}
 
 		// Generate a list of user agent IDs based on the selected browser sets
 		$browserSetsCnt = count( $browserSets );
 		$browserSets = array_unique( $browserSets );
-		if ( $browserSetsCnt != count( $browserSets ) ) {
+		if ( $browserSetsCnt !== count( $browserSets ) ) {
 			$this->setError( "invalid-input", "Duplicate entries in browserSets parameter." );
 			return;
 		}
 
-		$swarmUaIndex = BrowserInfo::getSwarmUAIndex();
 		$uaIDs = array();
 
 		foreach ( $browserSets as $browserSet ) {
@@ -134,7 +104,7 @@ class AddjobAction extends Action {
 				$this->setError( "invalid-input", "Unknown browser set: $browserSet." );
 				return;
 			}
-			// Merge the arrays, and re-index with unique (also prevents duplicate entries)
+			// Merge the arrays, and re-index with unique (prevents duplicate entries)
 			$uaIDs = array_unique( array_merge( $uaIDs, $conf->browserSets->$browserSet ) );
 		}
 
@@ -151,10 +121,10 @@ class AddjobAction extends Action {
 
 		// Create job
 		$isInserted = $db->query(str_queryf(
-			"INSERT INTO jobs (user_id, name, created)
-			VALUES (%u, %s, %s);",
-			$authUserId,
+			"INSERT INTO jobs (name, project_id, created)
+			VALUES (%s, %s, %s);",
 			$jobName,
+			$projectID,
 			swarmdb_dateformat( SWARM_NOW )
 		));
 

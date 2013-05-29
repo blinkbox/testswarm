@@ -22,9 +22,10 @@ class HomePage extends Page {
 	}
 
 	protected function initContent() {
-		$conf = $this->getContext()->getConf();
-		$request = $this->getContext()->getRequest();
-		$browserInfo = $this->getContext()->getBrowserInfo();
+		$context = $this->getContext();
+		$conf = $context->getConf();
+		$request = $context->getRequest();
+		$browserInfo = $context->getBrowserInfo();
 
 		$siteNameHtml = htmlspecialchars( $conf->web->title );
 
@@ -37,43 +38,35 @@ class HomePage extends Page {
 			. '<div class="span7">'
 			. '<h3>Distributed Continuous Integration for JavaScript</h3>'
 			. '<blockquote><p>'
-			. str_replace( "$1", $siteNameHtml, $conf->customMsg->homeIntro_html )
+			. str_replace( '$1', $siteNameHtml, $conf->customMsg->homeIntro_html )
 			. '</p></blockquote>'
 			. '</div>';
 
-		$html .= '<div class="span5"><div class="well well-small">';
+		$html .= '<div class="span5"><div class="well">';
 		if ( !$conf->client->requireRunToken ) {
 			if ( $browserInfo->isInSwarmUaIndex() ) {
-					$html .= '<p><strong>' . $siteNameHtml . ' needs your help!</strong><br>'
-					. ' You have a browser that we need to test against, join the swarm to help us out!</p>';
-				if ( !$request->getSessionData( "username" ) ) {
-					$html .= '<form action="' . swarmpath( "" ) . '" method="get" class="form-horizontal">'
-						. '<input type="hidden" name="action" value="run">'
-						. '<label for="form-item">Username:</label>'
-						. ' <input type="text" name="item" id="form-item" placeholder="Enter username..">'
-						. ' <input type="submit" value="Join the swarm" class="btn btn-primary">'
-						. '</form>';
-				} else {
-					$html .= '<p><a href="' . swarmpath( "run/{$request->getSessionData( 'username' )}/" )
-					. '" class="btn btn-primary btn-large">Join the swarm</a></p>';
-				}
+					$auth = $context->getAuth();
+					$suggestedClientName = $auth ? $auth->project->id : '';
+					$html .= '<p>Your browser is in our index, run some tests!</p>'
+					. '<form action="' . swarmpath( '' ) . '" method="get" class="form-horizontal swarm-form-join">'
+					. '<input type="hidden" name="action" value="run">'
+					. '<div class="input-append">'
+					. '<input type="text" name="item" placeholder="Enter name.." value="' . htmlspecialchars( $suggestedClientName ) . '" required pattern="' . htmlspecialchars( Client::getNameValidationRegex() ) . '">'
+					. '<input type="submit" value="Join the swarm" class="btn btn-primary">'
+					. '</div>'
+					. '</form>';
 			} else {
-				$browscap = $browserInfo->getBrowscap();
+				$uaData = $browserInfo->getUaData();
+				unset( $uaData->displayInfo );
 				$html .= '<div class="alert alert-info">'
-					. '<h4 class="alert-heading">TestSwarm does not recognize your browser.</h4>'
+					. '<h4 class="alert-heading">Your browser is not needed by this swarm.</h4>'
 					. '<p>Please join with one the below browsers.</p></div>'
 					. '<p>If you feel that this may be an error, please report it to the TestSwarm '
 					. ' <a href="https://github.com/jquery/testswarm/issues">Issue Tracker</a>,'
 					. ' including the following 2 codes:'
-					. '<br><strong><a href="http://browsers.garykeith.com/">browscap</a>:</strong> <code>'
-					. htmlspecialchars( print_r( array(
-							"Platform" => $browscap["Platform"],
-							"Browser" => $browscap["Browser"],
-							"Version" => $browscap["Version"],
-							"MajorVer" => $browscap["MajorVer"],
-							"MinorVer" => $browscap["MinorVer"],
-					), true ) )
-					. '</code><br><strong><a href="//en.wikipedia.org/wiki/User_agent" title="Read about User agent on Wikipedia!">User-Agent</a> string:</strong> <code>'
+					. '<br><strong><a href="https://github.com/tobie/ua-parser">ua-parser</a>:</strong> <code>'
+					. htmlspecialchars( print_r( $uaData, true ) )
+					. '</code><br><strong><a href="https://en.wikipedia.org/wiki/User_agent" title="Read about User agent on Wikipedia!">User-Agent</a> string:</strong> <code>'
 					. htmlspecialchars( $browserInfo->getRawUA() )
 					. '</code></p>';
 			}
@@ -105,35 +98,32 @@ class HomePage extends Page {
 
 		$itemsPerRow = 6;
 
-		$browsersHtml = '<h2>Browsers</h2>';
+		$browsersHtml = '<h2>State of the Swarm</h2>';
 		$browserItemCount = 0;
 
-		foreach ( $data["userAgents"] as $uaID => $userAgent ) {
-			if ( !in_array( $uaID, $conf->browserSets->default ) ) {
-				continue;
-			}
+		foreach ( $data['userAgents'] as $uaID => $userAgent ) {
 			$isCurr = $uaID == $browserInfo->getSwarmUaID();
+
+			$displayInfo = $userAgent['data']['displayInfo'];
 
 			$item = ''
 				. '<div class="span2">'
-				. '<div class="well well-small swarm-browseronline' . ( $isCurr ? " alert-info" : "" ) . '">'
+				. '<div class="well well-swarm-icon' . ( $isCurr ? ' alert-info' : '' ) . '">'
 
-				. html_tag( "img", array(
-					"src" => swarmpath( "img/" . $userAgent["data"]["displayicon"] . ".sm.png" ),
-					"class" => "swarm-browsericon",
-					"alt" => "",
-					"title" => $userAgent["data"]["displaytitle"],
+				. html_tag( 'div', array(
+					'class' => $displayInfo['class'],
+					'title' => $displayInfo['title'],
 				) )
 				. '<br>'
 
-				. html_tag( "span", array(
-					"class" => "badge swarm-browsername",
-				), $userAgent["data"]["displaytitle"] )
+				. html_tag_open( 'span', array(
+					'class' => 'label swarm-browsername',
+				) ) . $displayInfo['labelHtml'] . '</span>'
 
 				. '<br>'
 
-				. html_tag( "span", array(
-					"class" => "swarm-onlineclients " . (
+				. html_tag( 'span', array(
+					'class' => 'swarm-onlineclients ' . (
 						$userAgent["stats"]["onlineClients"] > 0
 						 ? "badge"
 						 : ( $userAgent['stats']['pendingRuns'] > 0 ? 'badge badge-important' : 'badge' )
@@ -144,17 +134,17 @@ class HomePage extends Page {
 				. html_tag( "span", array(
 					"class" => "swarm-pendingruns " . (
 						$userAgent["stats"]["pendingRuns"] > 0
-						 ? ( $userAgent["stats"]["onlineClients"] > 0 ? "label label-info" : "label label-warning" )
-						 : "label label-success"
+						 ? ( $userAgent["stats"]["onlineClients"] > 0 ? "badge badge-info" : "badge badge-warning" )
+						 : "badge badge-success"
 						)
-				), $userAgent["stats"]["pendingRuns"] . ' pending runs' )
+				), $userAgent["stats"]["pendingRuns"] . ' runs' )
 
 				. ( $userAgent["stats"]["pendingReRuns"] > 0
-					? '<br>' . html_tag( "span", array(
+					? ' ' . html_tag( "span", array(
 						"class" => "swarm-pendingreruns " . (
-							$userAgent["stats"]["onlineClients"] > 0 ? "label label-info" : "label label-warning"
+							$userAgent["stats"]["onlineClients"] > 0 ? "badge badge-info" : "badge badge-warning"
 							)
-						), $userAgent["stats"]["pendingReRuns"] . ' pending re-runs' )
+						), $userAgent["stats"]["pendingReRuns"] . ' re-runs' )
 					: ""
 				)
 
@@ -175,6 +165,10 @@ class HomePage extends Page {
 		// Close un-even items rows
 		if ( $browserItemCount % $itemsPerRow !== 0 ) {
 			$browsersHtml .= '</div><!--/.row -->';
+		}
+
+		if ( $browserItemCount === 0 ) {
+			$browsersHtml .= '<p><em>This swarm is empty!</em></p>';
 		}
 
 		$html .= $browsersHtml;

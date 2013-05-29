@@ -14,17 +14,17 @@ class RunPage extends Page {
 		$conf = $this->getContext()->getConf();
 		$request = $this->getContext()->getRequest();
 
-		$uaItem = $browserInfo->getSwarmUaItem();
+		$this->setTitle( 'Test runner' );
 
 		$runToken = null;
+
 		if ( $conf->client->requireRunToken ) {
 			$runToken = $request->getVal( "run_token" );
 			if ( !$runToken ) {
-				throw new SwarmException( "This swarm has restricted access to join the swarm." );
+				return '<div class="alert alert-error">This swarm has restricted access to join the swarm.</div>';
 			}
 		}
 
-		$this->setTitle( "Test runner" );
 		$this->displayPageTitle = false;
 		$this->displayNavBar = false;
 		$this->useContainerCssClass = true;
@@ -65,18 +65,12 @@ class RunPage extends Page {
 		$html .=
 			'<div class="row">'
 				. '<div class="span2">'
-					. '<div class="well pagination-centered thumbnail">'
-					. '<img src="' . swarmpath( "img/{$uaItem->displayicon}.sm.png" )
-						. '" class="swarm-browsericon '
-						. '" alt="' . htmlspecialchars( $uaItem->displaytitle )
-						. '" title="' . htmlspecialchars( $uaItem->displaytitle ) . '">'
-					. '<span class="label">' . htmlspecialchars( $uaItem->displaytitle ) . '</span>'
+					. $browserInfo->getIconHtml()
 					. '<br/>'
 					. '<span class="label label-info" id="deviceName" title="Device IP address or Testswarm Client ID">' . htmlspecialchars( $deviceIP ) . '</span>'
 					. '</div>'
-				. '</div>'
 				. '<div class="span7">'
-					. '<h2>' . htmlspecialchars( $client->getUserRow()->name ) . '</h2>'
+					. '<h2>' . htmlspecialchars( $client->getClientRow()->name ) . '</h2>'
 					. '<p><strong>Status:</strong> <span id="msg"></span></p>'
 				. '</div>'
 			. '</div>'

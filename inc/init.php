@@ -28,10 +28,13 @@ if ( !defined( 'SWARM_ENTRY' ) ) {
 	exit;
 }
 
+// Use dirname since __DIR__ is PHP 5.3+ and we're going to use it to
+// display an error to older PHP versions.
+require_once( dirname( __FILE__ ) . '/initError.php' );
+
 // Minimum PHP version
-if ( !function_exists( 'version_compare' ) || version_compare( phpversion(), '5.3.0' ) < 0 ) {
-	echo '<b>TestSwarm Fatal:</b> TestSwarm requires at least PHP 5.3.0';
-	exit;
+if ( !function_exists( 'version_compare' ) || version_compare( phpversion(), '5.3.2' ) < 0 ) {
+	swarmInitError( 'TestSwarm requires at least PHP 5.3.2' );
 }
 
 $swarmInstallDir = dirname( __DIR__ );
@@ -73,6 +76,8 @@ $swarmAutoLoadClasses = array(
 	'AddjobAction' => 'inc/actions/AddjobAction.php',
 	'AdddevboxjobAction' => 'inc/actions/AdddevboxjobAction.php',
 	'CleanupAction' => 'inc/actions/CleanupAction.php',
+	'ClientAction' => 'inc/actions/ClientAction.php',
+	'ClientsAction' => 'inc/actions/ClientsAction.php',
 	'DashboardAction' => 'inc/actions/DashboardAction.php',
 	'DashboardRefreshAction' => 'inc/actions/DashboardRefreshAction.php',
 	'GetrunAction' => 'inc/actions/GetrunAction.php',
@@ -81,21 +86,21 @@ $swarmAutoLoadClasses = array(
 	'LoginAction' => 'inc/actions/LoginAction.php',
 	'LogoutAction' => 'inc/actions/LogoutAction.php',
 	'PingAction' => 'inc/actions/PingAction.php',
+	'ProjectAction' => 'inc/actions/ProjectAction.php',
 	'ProjectsAction' => 'inc/actions/ProjectsAction.php',
 	'ResultAction' => 'inc/actions/ResultAction.php',
 	'SaverunAction' => 'inc/actions/SaverunAction.php',
-	'ScoresAction' => 'inc/actions/ScoresAction.php',
 	'SetDeviceNameAction' => 'inc/actions/SetDeviceNameAction.php',
-	'SignupAction' => 'inc/actions/SignupAction.php',
 	'RunnerAction' => 'inc/actions/RunnerAction.php',
 	'SwarmstateAction' => 'inc/actions/SwarmstateAction.php',
-	'UserAction' => 'inc/actions/UserAction.php',
 	'WipejobAction' => 'inc/actions/WipejobAction.php',
 	'WiperunAction' => 'inc/actions/WiperunAction.php',
 	# Pages
 	'AddjobPage' => 'inc/pages/AddjobPage.php',
 	'AdddevboxjobPage' => 'inc/pages/AdddevboxjobPage.php',
 	'ApiDebugPage' => 'inc/pages/ApiDebugPage.php',
+	'ClientPage' => 'inc/pages/ClientPage.php',
+	'ClientsPage' => 'inc/pages/ClientsPage.php',
 	'DashboardPage' => 'inc/pages/DashboardPage.php',
 	'Error404Page' => 'inc/pages/Error404Page.php',
 	'Error500Page' => 'inc/pages/Error500Page.php',
@@ -104,15 +109,13 @@ $swarmAutoLoadClasses = array(
 	'JobPage' => 'inc/pages/JobPage.php',
 	'LoginPage' => 'inc/pages/LoginPage.php',
 	'LogoutPage' => 'inc/pages/LogoutPage.php',
+	'ProjectPage' => 'inc/pages/ProjectPage.php',
 	'ProjectsPage' => 'inc/pages/ProjectsPage.php',
 	'ResultPage' => 'inc/pages/ResultPage.php',
 	'RunPage' => 'inc/pages/RunPage.php',
 	'SaverunPage' => 'inc/pages/SaverunPage.php',
-	'ScoresPage' => 'inc/pages/ScoresPage.php',
-	'SignupPage' => 'inc/pages/SignupPage.php',
-	'UserPage' => 'inc/pages/UserPage.php',
 	# Libs
-	'Browscap' => 'inc/libs/GaretJax-phpbrowscap/browscap/Browscap.php',
+	'UAParser' => 'inc/libs/ua-parser/php/uaparser.php',
 );
 
 function swarmAutoLoader( $className ) {
@@ -130,53 +133,51 @@ function swarmAutoLoader( $className ) {
 
 spl_autoload_register( 'swarmAutoLoader' );
 
+if ( !class_exists( 'UAParser' ) ) {
+	swarmInitError( 'Submodule "inc/libs/ua-parser" missing.' );
+}
+
 /**@}*/
 
 /**
- * Load settings
+ * Load and validate settings
  * @{
  */
-// Generic requirements that we still need globally unconditionally
+// Generic utilities that we still need globally unconditionally
 require_once __DIR__ . '/utilities.php';
 
-$defaultSettingsFile = "$swarmInstallDir/config/testswarm-defaults.json";
-$localSettingsFile = "$swarmInstallDir/config/testswarm.json";
+$defaultSettingsJSON = "$swarmInstallDir/config/defaultSettings.json";
+$localSettingsPHP = "$swarmInstallDir/config/localSettings.php";
 
 // Verify that the configuration files exists and are readable
-if ( !is_readable( $defaultSettingsFile ) ) {
-	echo "<b>TestSwarm Fatal:</b> Not readable: $defaultSettingsFile";
-	exit;
-}
-if ( !is_readable( $localSettingsFile ) ) {
-	echo "<b>TestSwarm Fatal:</b> Not readable: $localSettingsFile";
-	exit;
+if ( !is_readable( $defaultSettingsJSON ) || !is_readable( $localSettingsPHP ) ) {
+	swarmInitError( 'One or more configuration files were not readable by the server.' );
 }
 
-$defaultSettings = json_decode( file_get_contents( $defaultSettingsFile ) );
-$localSettings = json_decode( file_get_contents( $localSettingsFile ) );
+$defaultSettings = json_decode( file_get_contents( $defaultSettingsJSON ) );
+$localSettings = require $localSettingsPHP;
 if ( !$defaultSettings ) {
-	echo '<b>TestSwarm Fatal:</b> Default settings file contains invalid JSON.';
-	exit;
+	swarmInitError( 'Unable to parse defaultSettings.json' );
 }
-if ( !$localSettings ) {
-	echo '<b>TestSwarm Fatal:</b> Local settings file contains invalid JSON.';
-	exit;
+if ( !is_object( $localSettings ) ) {
+	error_log( 'TestSwarm Warning: Invalid return value for local settings. Type: ' . gettype( $localSettings ) . '.' );
+	$localSettings = array();
 }
 
 $swarmConfig = object_merge( $defaultSettings, $localSettings );
 
-unset( $defaultSettingsFile, $localSettingsFile, $defaultSettings, $localSettings );
+unset( $defaultSettingsJSON, $localSettingsPHP, $defaultSettings, $localSettings );
 
-// Validate browserSets
-// Must be after AutoLoad
-$swarmUaIndex = BrowserInfo::getSwarmUAIndex();
-foreach ( $swarmConfig->browserSets as $set => $browsers ) {
-	foreach ( $browsers as $browser ) {
-		if ( !isset( $swarmUaIndex->$browser ) ) {
-			echo "<b>TestSwarm Fatal</b>: Invalid browser ID \"<code>$browser</code>\" in browser set \"<code>$set</code>\"!";
-			exit;
+// Verify browserSets are valid.
+foreach ( $swarmConfig->browserSets as $browserSet => $browsers ) {
+	foreach ( $browsers as $i => $uaID ) {
+		if ( !isset( $swarmConfig->userAgents->$uaID ) ) {
+			error_log( 'TestSwarm Warning: Unregistered browserSet entry "' . $uaID . '" in "' . $browserSet . '".' );
+			unset( $browsers[$i] );
 		}
 	}
+	// Re-index as straight numerical array (in case some indexes were unset above)
+	$swarmConfig->browserSets->$browserSet = array_values( array_unique( $browsers ) );
 }
 
 // Timezone
@@ -200,8 +201,7 @@ $swarmConfig->storage->cacheDir = str_replace( "$1", $swarmInstallDir, $swarmCon
 
 // Caching directory must exist and be writable
 if ( !is_dir( $swarmConfig->storage->cacheDir ) || !is_writable( $swarmConfig->storage->cacheDir ) ) {
-	echo '<b>TestSwarm Fatal</b>: Caching directory must exist and be writable by the script!';
-	exit;
+	swarmInitError( 'Caching directory must exist and be writable by the webserver.' );
 }
 
 // Refresh control
@@ -211,6 +211,22 @@ if ( !is_dir( $swarmConfig->storage->cacheDir ) || !is_writable( $swarmConfig->s
 $refresh_control = 4; // 2012-06-11
 $swarmConfig->client->refresh_control += $refresh_control;
 
+unset( $server, $refresh_control );
+
+/**@}*/
+
+
+/**
+ * Custom PHP settings
+ * @{
+ */
+if ( $swarmConfig->debug->phpErrorReporting ) {
+	error_reporting( -1 );
+	ini_set( 'display_errors', 1 );
+}
+
+// Increase the session timeout to two weeks (3600 * 24 * 14)
+ini_set( 'session.gc_maxlifetime', '1209600' );
 
 /**@}*/
 
@@ -220,20 +236,5 @@ $swarmConfig->client->refresh_control += $refresh_control;
  * @{
  */
 $swarmContext = new TestSwarmContext( $swarmConfig );
-
-/**@}*/
-
-
-/**
- * Custom settings
- * @{
- */
-if ( $swarmContext->getConf()->debug->phpErrorReporting ) {
-	error_reporting( E_ALL );
-	ini_set( 'display_errors', 1 );
-}
-
-// Increase the session timeout to two weeks (3600 * 24 * 14)
-ini_set( 'session.gc_maxlifetime', '1209600' );
 
 /**@}*/

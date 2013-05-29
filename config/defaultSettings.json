@@ -1,0 +1,42 @@
+{
+	"general": {
+		"timezone": "UTC"
+	},
+	"database": {
+		"host": "localhost",
+		"database": "testswarm",
+		"username": false,
+		"password": false
+	},
+	"customMsg": {
+		"homeIntro_html": "Welcome to $1! More information about what TestSwarm is and how it works can be found on <a href=\"https://github.com/jquery/testswarm/wiki\">the TestSwarm wiki</a>."
+	},
+	"web": {
+		"server": null,
+		"contextpath": "/",
+		"title": "TestSwarm",
+		"ajaxUpdateInterval": 5
+	},
+	"client": {
+		"cooldownSleep": 0,
+		"nonewrunsSleep": 10,
+		"pingTime": 30,
+		"pingTimeMargin": 10,
+		"runTimeout": 180,
+		"saveReqTimeout": 10,
+		"saveRetryMax": 3,
+		"saveRetrySleep": 5,
+		"requireRunToken": false,
+		"refreshControl": 0
+	},
+	"storage": {
+		"cacheDir": "$1/cache"
+	},
+	"userAgents": {},
+	"browserSets": {},
+	"debug": {
+		"showExceptionDetails": false,
+		"phpErrorReporting": false,
+		"dbLogQueries": false
+	}
+}

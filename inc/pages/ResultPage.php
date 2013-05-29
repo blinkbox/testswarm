@@ -48,7 +48,7 @@ class ResultPage extends Page {
 			return $html;
 		}
 
-		$this->setSubTitle( '#' . $data['resultInfo']['id'] );
+		$this->setSubTitle( '#' . $data['info']['id'] );
 
 
 		if ( $data['job'] ) {
@@ -56,7 +56,7 @@ class ResultPage extends Page {
 				. html_tag_open( 'a', array( 'href' => $data['job']['url'], 'title' => 'Back to Job #' . $data['job']['id'] ) ) . '&laquo Back to Job #' . $data['job']['id'] . '</a>'
 				. '</em></p>';
 		} else {
-			$html = '<p><em>Run #' . $data['resultInfo']['runID'] . ' has been deleted. Job info unavailable.</em></p>';
+			$html = '<p><em>Run #' . $data['info']['runID'] . ' has been deleted. Job info unavailable.</em></p>';
 		}
 
 		if ( $data['otherRuns'] ) {
@@ -69,19 +69,20 @@ class ResultPage extends Page {
 
 		$html .= '<h3>Information</h3>'
 			. '<table class="table table-striped">'
-			. '<colgroup><col class="span2"/><col/></colgroup>'
 			. '<tbody>'
 			. '<tr><th>Run</th><td>'
 				. ($data['job']
 					? html_tag( 'a', array( 'href' => $data['job']['url'] ), 'Job #' . $data['job']['id'] ) . ' / '
 					: ''
 				)
-				. 'Run #' . htmlspecialchars( $data['resultInfo']['runID'] )
+				. 'Run #' . htmlspecialchars( $data['info']['runID'] )
 			. '</td></tr>'
 			. '<tr><th>Client</th><td>'
-				. html_tag( 'a', array( 'href' => $data['client']['userUrl'] ), $data['client']['userName'] )
-				. ' / Client #' . htmlspecialchars( $data['resultInfo']['clientID'] )
+				. html_tag( 'a', array( 'href' => $data['client']['viewUrl'] ), 'Client #' . $data['info']['clientID'] )
+				. ' / ' . htmlspecialchars( $data['client']['name'] )
 			. '</td></tr>'
+			. '<tr><th>UA ID</th><td>'
+				. '<code>' . htmlspecialchars( $data['client']['uaID'] ) . '</code>'
 			. ( $data['client']['deviceName'] !== null
 				? '<tr><th>Device name</th><td>'
 					. $data['client']['deviceName']
@@ -91,18 +92,17 @@ class ResultPage extends Page {
 				: ''
 			)
 			. '<tr><th>User-Agent</th><td>'
-				. '<code>' . htmlspecialchars( $data['client']['uaID'] ) . '</code><br/>'
-				. 'Raw: <br><code>' . htmlspecialchars( $data['client']['userAgent'] ) . '</code><br/>'
+				. '<tt>' . htmlspecialchars( $data['client']['uaRaw'] ) . '</tt>'
 				. html_tag( 'a', array( 'target' => '_blank', 'href' => 'http://wiki.blinkbox.local/wiki/index.php?profile=default&search=' . htmlspecialchars( $data['client']['userAgent'] ) ), 'search for this user agent on blinkbox wiki' )
 			. '</td></tr>'
 			. '<tr><th>Run time</th><td>'
-			. ( isset( $data['resultInfo']['runTime'] )
-				? number_format( intval( $data['resultInfo']['runTime'] ) ) . 's'
+			. ( isset( $data['info']['runTime'] )
+				? number_format( intval( $data['info']['runTime'] ) ) . 's'
 				: '?'
 			)
 			. '</td></tr>'
 			. '<tr><th>Status</th><td>'
-				. htmlspecialchars( $data['resultInfo']['status'] )
+				. htmlspecialchars( $data['info']['status'] )
 			. '</td></tr>'
 			. '<tr><th>Total</th><td>'
 				. htmlspecialchars( $data['resultInfo']['total'] )
@@ -114,11 +114,11 @@ class ResultPage extends Page {
 				. htmlspecialchars( $data['resultInfo']['error'] )
 			. '</td></tr>'
 			. '<tr><th>Started</th><td>'
-				. self::getPrettyDateHtml( $data['resultInfo'], 'started' )
+				. self::getPrettyDateHtml( $data['info'], 'started' )
 			. '</td></tr>'
-			. ( isset( $data['resultInfo']['savedLocalFormatted'] )
+			. ( isset( $data['info']['savedLocalFormatted'] )
 				? ('<tr><th>Saved</th><td>'
-					. self::getPrettyDateHtml( $data['resultInfo'], 'saved' )
+					. self::getPrettyDateHtml( $data['info'], 'saved' )
 					. '</td></tr>'
 				)
 				: ''
@@ -139,7 +139,7 @@ class ResultPage extends Page {
 			. html_tag( 'a', array(
 				'href' => swarmpath( 'index.php' ) . '?' . http_build_query(array(
 					'action' => 'result',
-					'item' => $data['resultInfo']['id'],
+					'item' => $data['info']['id'],
 					'raw' => '',
 				)),
 				'target' => '_blank',
@@ -149,7 +149,7 @@ class ResultPage extends Page {
 			. html_tag( 'iframe', array(
 				'src' => swarmpath( 'index.php' ) . '?' . http_build_query(array(
 					'action' => 'result',
-					'item' => $data['resultInfo']['id'],
+					'item' => $data['info']['id'],
 					'raw' => '',
 				)),
 				'width' => '100%',
@@ -179,6 +179,10 @@ class ResultPage extends Page {
 
 		$this->setRobots( 'noindex,nofollow' );
 
+		// Override frameoptions to allow framing. Note, we can't use
+		// Page::setFrameOptions(), as this page does not use the Page class layout.
+		header( 'X-Frame-Options: SAMEORIGIN', true );
+
 		$row = $db->getRow(str_queryf(
 			'SELECT
 				status,
@@ -194,7 +198,7 @@ class ResultPage extends Page {
 			// If it finished or was aborted, there should be
 			// a (at least partial) html report.
 			if ( $status === ResultAction::$STATE_FINISHED || $status === ResultAction::$STATE_ABORTED || $status === ResultAction::$STATE_HEARTBEAT ) {
-				if ( $row->report_html ) {
+				if ( $row->report_html !== '' && $row->report_html !== null ) {
 					header( 'Content-Encoding: gzip' );
 					echo $row->report_html;
 				} else {

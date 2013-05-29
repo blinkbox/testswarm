@@ -27,13 +27,16 @@
 	 * Utility function for formatting HTML.
 	 * @since 1.0.0
 	 *
-	 * @param $tagName string: HTML tag name
-	 * @param #attribs array: Key/value pairs, unescaped
+	 * @param $tagName string: The HTML tag name.
+	 * @param $attribs array: Key/value pairs to be escaped (keys with null/false values are skipped).
 	 * @param $content string|null: [optional] Text content, to be escaped.
 	 */
 	function html_tag_open( $tagName, Array $attribs = array() ) {
 		$html = "<$tagName";
 		foreach ( $attribs as $key => $value ) {
+			if ( $value === null || $value === false ) {
+				continue;
+			}
 			$html .= ' ' . strtolower( $key ) . '="' . strtr( $value, array(
 				'&' => '&amp;',
 				'"' => '&quot;',
@@ -127,7 +130,7 @@
 						$sql_query .= $char;
 						break;
 					case 'u':
-						$sql_query .= "'" . intval( $args[$args_i] ) . "'";
+						$sql_query .= "" . intval( $args[$args_i] );
 						break;
 					case 's':
 						$sql_query .= "'" . mysql_real_escape_string( $args[$args_i] ) . "'";
@@ -138,7 +141,7 @@
 						$sql_query .= "('" . implode( "', '", $escapedList ) . "')";
 						break;
 				}
-				if ($char != 'x') {
+				if ( $char != 'x' ) {
 					$args_i++;
 				}
 			} else {
@@ -154,7 +157,7 @@
 		 * PHP has natsort() but no natksort().
 		 *
 		 * @source http://stackoverflow.com/a/1186347/319266
-		 * @seealso php.net/uksort, php.net/natsort, php.net/strnatcmp
+		 * @see php.net/uksort, php.net/natsort, php.net/strnatcmp
 		 */
 		 function natksort( &$array ) {
 			uksort( $array, 'strnatcmp' );
@@ -165,7 +168,7 @@
 		 * PHP has natcasesort() but no natcaseksort().
 		 *
 		 * @source http://stackoverflow.com/a/1186347/319266
-		 * @seealso php.net/uksort, php.net/natcasesort, php.net/strnatcasecmp
+		 * @see php.net/uksort, php.net/natcasesort, php.net/strnatcasecmp
 		 */
 		 function natcaseksort( &$array ) {
 			uksort( $array, 'strnatcasecmp' );
@@ -207,7 +210,8 @@
 	 * For usage in the TestSwarm database.
 	 * @since 1.0.0
 	 *
-	 * @param $timestamp int Unix timestamp, if 0 is given, "now" will be assumed.
+	 * @param $timestamp int Unix timestamp, if 0 is given, the current time will be used.
+	 *  Use SWARM_NOW to pass 0.
 	 */
 	function swarmdb_dateformat( $timestamp = 0 ) {
 		$timestamp = $timestamp === 0 ? time() : $timestamp;
