@@ -8,6 +8,7 @@
 jQuery(function ( $ ) {
 	var updateInterval = SWARM.conf.web.ajaxUpdateInterval * 1000,
 		$wipejobErr = $( '#swarm-wipejob-error' ),
+		$addbrowserstojobErr = $( '#swarm-addbrowserstojob-error' ),
 		refreshTableTimout, $indicator;
 
 	$indicator = $( '<span class="btn pull-right disabled">updating <i class="icon-refresh"></i></span>' ).css( 'opacity', 0 );
@@ -70,6 +71,10 @@ jQuery(function ( $ ) {
 		$wipejobErr.hide().text( data.error && data.error.info || 'Action failed.' ).slideDown();
 	}
 
+	function addbrowserstojobFail( data ) {
+		$addbrowserstojobErr.hide().text( data.error && data.error.info || 'Action failed.' ).slideDown();
+	}
+
 	function wipeClick( type, success ) {
 		$wipejobErr.hide();
 		$.ajax({
@@ -85,7 +90,39 @@ jQuery(function ( $ ) {
 			error: wipejobFail
 		});	
 	}
-	
+
+	$( '#swarm-add-browsers' ).click( function () {
+
+		$addbrowserstojobErr.hide();
+
+		var jobData = {
+			action: 'addbrowserstojob',
+			job_id: SWARM.jobInfo.id
+		};
+
+		var formData = $('.swarm-add-browsers-form').serialize();
+		$('.swarm-add-browsers-form')[0].reset();
+
+		var combinedData = formData + '&' + $.param(jobData);
+
+		$.ajax({
+			url: SWARM.conf.web.contextpath + 'api.php',
+			type: 'POST',
+			data: combinedData,
+			dataType: 'json',
+			success: function ( data ) {
+				if ( data.addbrowserstojob && data.addbrowserstojob.result === 'ok' ) {
+					refreshTable();
+					return;
+				}
+				addbrowserstojobFail( data );
+			},
+			error: function ( error ) {
+				addbrowserstojobFail( error );
+			}
+		});
+	});
+
 	$( '#swarm-job-delete' ).click( function () { 
 		wipeClick( 'delete', function ( data ) {
 			if ( data.wipejob && data.wipejob.result === 'ok' ) {

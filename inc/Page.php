@@ -205,6 +205,7 @@ abstract class Page {
 	<link rel="stylesheet" href="<?php echo isMaple () ? swarmpath( 'css/testswarmsamsung.css' ) : swarmpath( 'css/testswarm.css' ); ?>">
 	<script src="<?php echo swarmpath( 'js/jquery.js' ); ?>"></script>
 	<script src="<?php echo swarmpath( 'js/bootstrap-dropdown.js' ); ?>"></script>
+	<script src="<?php echo swarmpath( 'js/bootstrap-modal.js' ); ?>"></script>
 	<script>window.SWARM = <?php
 		$infoAction = InfoAction::newFromContext( $this->getContext() );
 		$infoAction->doAction();
