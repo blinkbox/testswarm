@@ -285,6 +285,44 @@
 				return deferred.promise();
 			}
 		},
+		ie10_or_below: {
+			userAgentRegex: /([MS]?IE) ((\d+)\.(\d+))/i,
+			getDetails: function(){
+
+				var deferred = $.Deferred();
+
+				var browserVersion = window.navigator.appVersion.match(this.userAgentRegex)[2];
+
+				var deviceInfo = $.extend( defaultDetails, {
+					device_type: deviceTypes.DEVICE_TYPE_DESKTOP,
+
+					browser_version: browserVersion
+				});
+
+				deferred.resolve(deviceInfo);
+
+				return deferred.promise();
+			}
+		},
+		ie11_plus: {
+			userAgentRegex: /Trident.*rv.((\d+)\.(\d+))/i,
+			getDetails: function(){
+
+				var deferred = $.Deferred();
+
+				var browserVersion = window.navigator.appVersion.match(this.userAgentRegex)[1];
+
+				var deviceInfo = $.extend( defaultDetails, {
+					device_type: deviceTypes.DEVICE_TYPE_DESKTOP,
+
+					browser_version: browserVersion
+				});
+
+				deferred.resolve(deviceInfo);
+
+				return deferred.promise();
+			}
+		},
 		chrome: {
 			userAgentRegex: /Chrome/i,
 			getDetails: function(){

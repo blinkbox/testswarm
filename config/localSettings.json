@@ -114,14 +114,13 @@
 	},
 	"browserSets": {
 		"Default": [
-			"Chrome36",
+			"Chrome37",
 			"PhantomJS1.9"
 		],
 		"Chrome": [
-			"Chrome36"
+			"Chrome37"
 		],
 		"Chrome Dev": [
-			"Chrome37",
 			"Chrome38",
 			"Chrome39"
 		],
